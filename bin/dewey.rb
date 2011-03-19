@@ -77,7 +77,9 @@ module Dewey
       FileUtils.mkdir_p(@tv_dir) rescue nil
       validate_opts!
       
-      organiser = Organiser.new(@input_dir, @tv_dir)
+      organiser = Organiser.new(@input_dir, @tv_dir) do |o|
+        o.pretend = true unless @archive
+      end
       
       organiser.organise!
     end
