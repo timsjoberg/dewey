@@ -10,11 +10,13 @@ module Dewey
       @input_dir = input_dir || "/tmp/input"
       @base_tv_dir = base_tv_dir || "tmp/output"
       
-      @pretend = pretend || false
-      @delete_nfo = delete_nfo || true
-      @extensions = extensions || ['avi', 'mkv']
-      @show_name_separator = show_name_separator || "."
-      @file_name_spearator = file_name_separator || "."
+      @pretend = false
+      @delete_nfo = true
+      @extensions = ['avi', 'mkv']
+      @show_name_separator = "."
+      @file_name_separator = "."
+      
+      yield(self) if block_given?
       
       update_extension_regex
     end
@@ -27,7 +29,7 @@ module Dewey
     def organise!
       Dir[File.join(File.expand_path(@input_dir),"**", "*")].each do |possible_file|
         if thing = valid_file?(possible_file)
-          show = thing.first.gsub(/#{Regexp.escape(@show_name_separator)}/, ".")
+          show = thing.first.gsub(/#{Regexp.escape(@show_name_separator)}/, @file_name_separator)
           season = thing[1].to_s.rjust(2,'0')
           episode = thing[2].to_s.rjust(2, '0')
           target_directory = File.join(File.expand_path(@base_tv_dir), thing.first, season)

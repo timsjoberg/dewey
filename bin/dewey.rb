@@ -5,6 +5,7 @@ module Dewey
 
     require "optparse"
     require "fileutils"
+    require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'dewey', 'organiser'))
     
     RC_OK = 0
     RC_USAGE = 1
@@ -75,6 +76,10 @@ module Dewey
       @input_dir = File.expand_path(@input_dir) rescue nil
       FileUtils.mkdir_p(@tv_dir) rescue nil
       validate_opts!
+      
+      organiser = Organiser.new(@input_dir, @tv_dir)
+      
+      organiser.organise!
     end
 
     def validate_opts!
