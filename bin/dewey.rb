@@ -40,7 +40,7 @@ module Dewey
           @tv_extensions = v.split(",")
         end
 
-        o.on("--[no]-archive",
+        o.on("--[no-]archive",
              "Disable this if you want a pretend run",
              "Default: #{@archive}") do |v|
           @archive = v
