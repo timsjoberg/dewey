@@ -192,7 +192,11 @@ module Dewey
       end
       if other_files.empty?
         puts "Deleting empty folder: #{folder}"
-        FileUtils.rmdir(folder)
+        begin
+          FileUtils.rmdir(folder)
+        rescue Errno::ENOTEMPTY
+          puts "ERROR deleting folder #{folder} It is not empty. Most likely it has hidden files or folders in it"
+        end
       end
     end
     
