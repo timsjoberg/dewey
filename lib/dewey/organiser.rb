@@ -1,4 +1,5 @@
 require 'fileutils'
+require 'tvdb'
 
 module Dewey
   class Organiser
@@ -35,11 +36,15 @@ module Dewey
           target_directory = File.join(File.expand_path(@base_tv_dir), thing.first, season)
           target_file = File.join(target_directory, "#{show}.s#{season}e#{episode}.#{thing[3]}.#{thing[4]}")
           
-          puts "Moving #{possible_file} to #{target_file}"
-          FileUtils.mkdir_p(target_directory) unless @pretend
-          FileUtils.mv(possible_file, target_file) unless @pretend
-          
-          cleanup!(File.dirname(possible_file)) unless @pretend
+          if File.file?(target_file)
+            puts "ERROR: NOT moving #{possible_file} to #{target_file} because target already exists"
+          else
+            puts "Moving #{possible_file} to #{target_file}"
+            FileUtils.mkdir_p(target_directory) unless @pretend
+            FileUtils.mv(possible_file, target_file) unless @pretend
+            
+            cleanup!(File.dirname(possible_file)) unless @pretend
+          end
         end
       end
     end
@@ -52,29 +57,34 @@ module Dewey
     
     def valid_file?(path)
       filename = File.basename(path)
-      if filename.downcase =~ /^([\w\s\. ]+)(?:\.| )(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))(?:\.| )(.+)\.#{@extension_regex}$/
-            
-        show = $1
-        season = $2
-        episode = $3
-        season ||= $4
-        episode ||= $5
-        other_stuff = $6
-        extension = $7
-        
-        other_stuff = other_stuff.gsub(/\./, " ").gsub(/\-/, " ").split(" ")
-        temp = other_stuff.pop
-        temp = "#{other_stuff.pop}-#{temp}"
-        other_stuff.push temp
-        other_stuff = other_stuff.join(@file_name_separator)
-        
-        show = show.gsub(/\./, @show_name_separator).gsub(/ /, @show_name_separator)
-        
-        return [show, season.to_i, episode.to_i, other_stuff, extension]
-      elsif filename =~ /.*\.#{@extension_regex}$/
+      dirname = File.basename(File.dirname(path))
+      possible_files_in_folder = []
+      @extensions.each do |extension|
+        possible_files_in_folder.concat Dir[File.join(File.dirname(path), "*.#{extension}")]
+      end
+      
+      if filename =~ /.*\.#{@extension_regex}$/
         extension = $1
-        dirname = File.basename(File.dirname(path)).downcase
-        if dirname =~ /^([\w\s\. ]+)(?:\.| )(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))(?:\.| )(.+)$/
+        if filename.downcase =~ /^([\w\s\. ]+)(?:\.| )(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))(?:\.| )(.+)\.#{@extension_regex}$/
+              
+          show = $1
+          season = $2
+          episode = $3
+          season ||= $4
+          episode ||= $5
+          other_stuff = $6
+          extension = $7
+          
+          other_stuff = other_stuff.gsub(/\./, " ").gsub(/\-/, " ").split(" ")
+          temp = other_stuff.pop
+          temp = "#{other_stuff.pop}-#{temp}"
+          other_stuff.push temp
+          other_stuff = other_stuff.join(@file_name_separator)
+          
+          show = show.gsub(/\./, @show_name_separator).gsub(/ /, @show_name_separator)
+          
+          return [show, season.to_i, episode.to_i, other_stuff, extension]
+        elsif possible_files_in_folder.size == 1 && (filename =~ /sample/).nil? && dirname.downcase =~ /^([\w\s\. ]+)(?:\.| )(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))(?:\.| )(.+)$/
           show = $1
           season = $2
           episode = $3
@@ -92,6 +102,51 @@ module Dewey
           
           return [show, season.to_i, episode.to_i, other_stuff, extension]
         else
+          working = filename.downcase.gsub(/\-/, " ").gsub(/\./, " ").gsub(/ +/, " ").strip.split(/ /)
+          
+          found = false
+          position = -1
+          season = nil
+          episode = nil
+          
+          working.each_with_index do |term, i|
+            if term =~ /^(\d{1,2})(\d{2})$/
+              found = true
+              position = i
+              season = $1
+              episode = $2
+            else
+              break if found == true
+            end
+          end
+          
+          series_name = working.slice(0, position).join(" ") if found
+          series_regexp = working.slice(0, position).join("\\W+") + "\\W*" if found
+          
+          if found && !series_name.nil? && !series_name.empty?
+            client = TVdb::Client.new('2453AFC9C8A5C8C3')
+            results = client.search(series_name)
+            tvdb_series_name = nil
+            
+            results.each do |result|
+              if result.seriesname =~ /^#{series_regexp}$/i
+                tvdb_series_name = result.seriesname
+                break
+              end
+            end
+            
+            unless tvdb_series_name.nil?
+              (position + 1).times { working.shift }
+              extension = working.pop
+              temp = working.pop
+              other_stuff = working.join(@file_name_separator) + "-#{temp}"
+              
+              show = series_name.gsub(/ /, @show_name_separator)
+              
+              return [show, season.to_i, episode.to_i, other_stuff, extension]
+            end
+          end
+          
           puts "Unidentified file of the correct type found: #{path}"
         end
       end
