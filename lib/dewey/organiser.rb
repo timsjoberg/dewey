@@ -17,6 +17,8 @@ module Dewey
       @show_name_separator = "."
       @file_name_separator = "."
       
+      @tvdb_hash = {}
+      
       yield(self) if block_given?
       
       update_extension_regex
@@ -120,19 +122,40 @@ module Dewey
             end
           end
           
+          unless found
+            working.each_with_index do |term, i|
+              if term =~ /^(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))$/
+                found = true
+                position = i
+                season = $1
+                episode = $2
+                season ||= $3
+                episode ||= $4
+                break
+              end
+            end
+          end
+          
           series_name = working.slice(0, position).join(" ") if found
           series_regexp = working.slice(0, position).join("\\W+") + "\\W*" if found
           
           if found && !series_name.nil? && !series_name.empty?
-            client = TVdb::Client.new('2453AFC9C8A5C8C3')
-            results = client.search(series_name)
             tvdb_series_name = nil
             
-            results.each do |result|
-              if result.seriesname =~ /^#{series_regexp}$/i
-                tvdb_series_name = result.seriesname
-                break
+            if @tvdb_hash[series_name].nil?
+              client = TVdb::Client.new('2453AFC9C8A5C8C3')
+              results = client.search(series_name)
+              
+              
+              results.each do |result|
+                if result.seriesname =~ /^#{series_regexp}$/i
+                  tvdb_series_name = result.seriesname
+                  @tvdb_hash[series_name] = result
+                  break
+                end
               end
+            else
+              tvdb_series_name = @tvdb_hash[series_name].seriesname
             end
             
             unless tvdb_series_name.nil?
