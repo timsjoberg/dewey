@@ -18,6 +18,7 @@ module Dewey
       @file_name_separator = "."
       
       @tvdb_hash = {}
+      @cached_searches = {}
       
       yield(self) if block_given?
       
@@ -137,18 +138,24 @@ module Dewey
           end
           
           series_name = working.slice(0, position).join(" ") if found
-          series_regexp = working.slice(0, position).join("\\W+") + "\\W*" if found
           
           if found && !series_name.nil? && !series_name.empty?
             tvdb_series_name = nil
             
             if @tvdb_hash[series_name].nil?
               client = TVdb::Client.new('2453AFC9C8A5C8C3')
-              results = client.search(series_name)
+              better_search = series_name.gsub(/ and /, " ").gsub(/^the /, "").gsub(/^shit /, "").gsub(/ \& /, " ")
               
+              results = nil
+              unless @cached_searches[better_search].nil?
+                results = @cached_searches[better_search]
+              else
+                results = client.search(better_search)
+                @cached_searches[better_search] = results
+              end
               
               results.each do |result|
-                if result.seriesname =~ /^#{series_regexp}$/i
+                if normalize_tvdb_series_name(result.seriesname) == series_name
                   tvdb_series_name = result.seriesname
                   @tvdb_hash[series_name] = result
                   break
@@ -198,6 +205,10 @@ module Dewey
           puts "ERROR deleting folder #{folder} It is not empty. Most likely it has hidden files or folders in it"
         end
       end
+    end
+    
+    def normalize_tvdb_series_name(series_name)
+      series_name.gsub(/\$\#\*\!/, "shit").gsub(/[\(\)\:\!\']/, "").gsub(/\-/, " ").gsub(/\&/, "and").gsub(/ +/, " ").strip.downcase
     end
     
   end
