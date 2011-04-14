@@ -36,7 +36,9 @@ module Dewey
           season = thing[1].to_s.rjust(2,'0')
           episode = thing[2].to_s.rjust(2, '0')
           target_directory = File.join(File.expand_path(@base_tv_dir), thing.first, season)
-          target_file = File.join(target_directory, "#{show}.s#{season}e#{episode}.#{thing[3]}.#{thing[4]}")
+          target_file = File.join(target_directory, "#{show}.s#{season}e#{episode}")
+          target_file << ".#{thing[3]}" unless thing[3].nil? || thing[3].empty?
+          target_file << ".#{thing[4]}"
           
           if File.file?(target_file)
             puts "ERROR: NOT moving #{possible_file} to #{target_file} because target already exists"
@@ -79,9 +81,8 @@ module Dewey
           
           other_stuff = other_stuff.gsub(/\./, " ").gsub(/\-/, " ").split(" ")
           temp = other_stuff.pop
-          temp = "#{other_stuff.pop}-#{temp}"
-          other_stuff.push temp
           other_stuff = other_stuff.join(@file_name_separator)
+          other_stuff << "-#{temp}" unless temp.nil? || temp.empty?
           
           show = show.gsub(/\./, @show_name_separator).gsub(/ /, @show_name_separator)
           
@@ -96,9 +97,8 @@ module Dewey
           
           other_stuff = other_stuff.gsub(/\./, " ").gsub(/\-/, " ").split(" ")
           temp = other_stuff.pop
-          temp = "#{other_stuff.pop}-#{temp}"
-          other_stuff.push temp
           other_stuff = other_stuff.join(@file_name_separator)
+          other_stuff << "-#{temp}" unless temp.nil? || temp.empty?
           
           show = show.gsub(/\./, @show_name_separator).gsub(/ /, @show_name_separator)
           
@@ -162,7 +162,8 @@ module Dewey
               (position + 1).times { working.shift }
               extension = working.pop
               temp = working.pop
-              other_stuff = working.join(@file_name_separator) + "-#{temp}"
+              other_stuff = working.join(@file_name_separator) 
+              other_stuff << "-#{temp}" unless temp.nil? || temp.empty?
               
               show = series_name.gsub(/ /, @show_name_separator)
               
