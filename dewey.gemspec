@@ -8,8 +8,8 @@ Gem::Specification.new do |s|
   s.authors     = []
   s.email       = []
   s.homepage    = "http://rubygems.org/gems/dewey"
-  s.summary     = "TODO: Write a gem summary"
-  s.description = "TODO: Write a gem description"
+  s.summary     = "Manage your TV collection"
+  s.description = "Guesses show/episode information and puts things in the right place"
 
   s.required_rubygems_version = ">= 1.3.6"
   s.rubyforge_project         = "dewey"
