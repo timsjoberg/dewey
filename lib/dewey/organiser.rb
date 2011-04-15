@@ -1,5 +1,5 @@
 require 'fileutils'
-require 'tvdb'
+require 'tvdb_party'
 
 module Dewey
   class Organiser
@@ -17,9 +17,8 @@ module Dewey
       @show_name_separator = "."
       @file_name_separator = "."
       
-      @client = TVdb::Client.new('2453AFC9C8A5C8C3')
+      @client = TvdbParty::Search.new('2453AFC9C8A5C8C3')
       @tvdb_hash = {}
-      @cached_searches = {}
       
       yield(self) if block_given?
       
@@ -69,50 +68,29 @@ module Dewey
         possible_files_in_folder.concat Dir[File.join(File.dirname(path), "*.#{extension}")]
       end
       
-      if filename =~ /.*\.#{@extension_regex}$/
-        extension = $1
-        if filename.downcase =~ /^([\w\s\. ]+)(?:\.| )(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))(?:\.| )(.+)\.#{@extension_regex}$/
-              
-          show = $1
-          season = $2
-          episode = $3
-          season ||= $4
-          episode ||= $5
-          other_stuff = $6
-          extension = $7
-          
-          other_stuff = other_stuff.gsub(/\./, " ").gsub(/\-/, " ").split(" ")
-          temp = other_stuff.pop
-          other_stuff = other_stuff.join(@file_name_separator)
-          other_stuff << "-#{temp}" unless temp.nil? || temp.empty?
-          
-          show = show.gsub(/\./, @show_name_separator).gsub(/ /, @show_name_separator)
-          
-          return [show, season.to_i, episode.to_i, other_stuff, extension]
-        elsif possible_files_in_folder.size == 1 && (filename =~ /sample/).nil? && dirname.downcase =~ /^([\w\s\. ]+)(?:\.| )(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))(?:\.| )(.+)$/
-          show = $1
-          season = $2
-          episode = $3
-          season ||= $4
-          episode ||= $5
-          other_stuff = $6
-          
-          other_stuff = other_stuff.gsub(/\./, " ").gsub(/\-/, " ").split(" ")
-          temp = other_stuff.pop
-          other_stuff = other_stuff.join(@file_name_separator)
-          other_stuff << "-#{temp}" unless temp.nil? || temp.empty?
-          
-          show = show.gsub(/\./, @show_name_separator).gsub(/ /, @show_name_separator)
-          
-          return [show, season.to_i, episode.to_i, other_stuff, extension]
-        else
-          working = filename.downcase.gsub(/\-/, " ").gsub(/\./, " ").gsub(/ +/, " ").strip.split(/ /)
-          
-          found = false
-          position = -1
-          season = nil
-          episode = nil
-          
+      if filename =~ /.*\.#{@extension_regex}$/i
+        extension = $1.downcase
+        
+        working = filename.downcase.gsub(/\-/, " ").gsub(/\./, " ").gsub(/ +/, " ").strip.split(/ /)
+        
+        found = false
+        position = -1
+        season = nil
+        episode = nil
+        
+        working.each_with_index do |term, i|
+          if term =~ /^(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))$/
+            found = true
+            position = i
+            season = $1
+            episode = $2
+            season ||= $3
+            episode ||= $4
+            break
+          end
+        end
+        
+        unless found
           working.each_with_index do |term, i|
             if term =~ /^(\d{1,2})(\d{2})$/
               found = true
@@ -123,41 +101,55 @@ module Dewey
               break if found == true
             end
           end
+        end
+        
+        series_name = working.slice(0, position).join(" ") if found
+        
+        if found && !series_name.nil? && !series_name.empty?
+          tvdb_series = find_tvdb_result_for_series_name(series_name)
           
-          unless found
-            working.each_with_index do |term, i|
-              if term =~ /^(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))$/
-                found = true
-                position = i
-                season = $1
-                episode = $2
-                season ||= $3
-                episode ||= $4
-                break
-              end
-            end
-          end
-          
-          series_name = working.slice(0, position).join(" ") if found
-          
-          if found && !series_name.nil? && !series_name.empty?
-            tvdb_series = find_tvdb_result_for_series_name(series_name)
+          unless tvdb_series.nil?
+            (position + 1).times { working.shift }
+            extension = working.pop
+            temp = working.pop
+            other_stuff = working.join(@file_name_separator) 
+            other_stuff << "-#{temp}" unless temp.nil? || temp.empty?
             
-            unless tvdb_series.nil?
-              (position + 1).times { working.shift }
-              extension = working.pop
-              temp = working.pop
-              other_stuff = working.join(@file_name_separator) 
-              other_stuff << "-#{temp}" unless temp.nil? || temp.empty?
-              
-              show = normalize_series_name(tvdb_series.seriesname).gsub(/ /, @show_name_separator)
-              
+            show = normalize_series_name(tvdb_series["SeriesName"]).gsub(/ /, @show_name_separator)
+            
+            unless @client.get_series_by_id(tvdb_series["seriesid"]).get_episode(season.to_i, episode.to_i).nil?
               return [show, season.to_i, episode.to_i, other_stuff, extension]
             end
           end
-          
-          puts "Unidentified file of the correct type found: #{path}"
         end
+        
+        if possible_files_in_folder.size == 1 && (filename =~ /sample/i).nil? && dirname.downcase =~ /^(.+)(?:s([0-9]{2,})e([0-9]{2,})|([0-9]{1,})x([0-9]{2,}))(?:\.| )(.+)$/
+          show = $1
+          season = $2
+          episode = $3
+          season ||= $4
+          episode ||= $5
+          other_stuff = $6
+          
+          show = normalize_series_name(show)
+          
+          tvdb_series = find_tvdb_result_for_series_name(show)
+          
+          unless tvdb_series.nil?
+            other_stuff = other_stuff.gsub(/\./, " ").gsub(/\-/, " ").split(" ")
+            temp = other_stuff.pop
+            other_stuff = other_stuff.join(@file_name_separator)
+            other_stuff << "-#{temp}" unless temp.nil? || temp.empty?
+            
+            show = show.gsub(/\./, @show_name_separator).gsub(/ /, @show_name_separator)
+            
+            unless @client.get_series_by_id(tvdb_series["seriesid"]).get_episode(season.to_i, episode.to_i).nil?
+              return [show, season.to_i, episode.to_i, other_stuff, extension]
+            end
+          end
+        end
+        
+        puts "Unidentified file of the correct type found: #{path}"
       end
       
       return nil
@@ -191,9 +183,60 @@ module Dewey
       return @tvdb_hash[normalized_series_name] unless @tvdb_hash[normalized_series_name].nil?
       
       tvdb_search(normalized_series_name).each do |result|
-        if normalized_series_name == normalize_series_name(result.seriesname)
+        if normalized_series_name == normalize_series_name(result["SeriesName"])
           @tvdb_hash[normalized_series_name] = result
           return result
+        end
+      end
+      
+      if normalized_series_name.split(/ /).size > 1
+        asdasd = normalized_series_name.sub(/ \w+$/, "")
+        
+        if asdasd.length > 4
+          tvdb_search(asdasd).each do |result|
+            normalized_result_name = normalize_series_name(result["SeriesName"])
+            
+            if normalized_series_name == normalized_result_name
+              @tvdb_hash[normalized_series_name] = result
+              return result
+            end
+            
+            if asdasd == normalized_result_name
+              @tvdb_hash[normalized_series_name] = result
+              return result
+            end
+            
+            if normalized_result_name.split(/ /).size > 1
+              if normalized_series_name == normalized_result_name.sub(/ \w+$/, "")
+                @tvdb_hash[normalized_series_name] = result
+                return result
+              end
+            end
+          end
+        end
+        
+        #last ditch effort. we search using the longest word in the title.
+        #we are still quite strict with matches
+        if normalized_series_name =~ /(\w+)/
+          longest_word = $1
+          
+          if longest_word.length > 4
+            tvdb_search(longest_word).each do |result|
+              normalized_result_name = normalize_series_name(result["SeriesName"])
+              
+              if normalized_series_name == normalized_result_name
+                @tvdb_hash[normalized_series_name] = result
+                return result
+              end
+              
+              if normalized_result_name.split(/ /).size > 1
+                if normalized_series_name == normalized_result_name.sub(/ \w+$/, "")
+                  @tvdb_hash[normalized_series_name] = result
+                  return result
+                end
+              end
+            end
+          end
         end
       end
       
@@ -207,11 +250,7 @@ module Dewey
     def tvdb_search(series_name)
       better_search = series_name.gsub(/ and /, " ").gsub(/^the /, "").gsub(/^shit /, "").gsub(/ \& /, " ")
       
-      if @cached_searches[better_search].nil?
-        @cached_searches[better_search] = @client.search(better_search)
-      end
-      
-      @cached_searches[better_search] 
+      @client.search(better_search)
     end
     
   end
