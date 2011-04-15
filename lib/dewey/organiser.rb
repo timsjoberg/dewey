@@ -17,6 +17,7 @@ module Dewey
       @show_name_separator = "."
       @file_name_separator = "."
       
+      @client = TVdb::Client.new('2453AFC9C8A5C8C3')
       @tvdb_hash = {}
       @cached_searches = {}
       
@@ -140,39 +141,16 @@ module Dewey
           series_name = working.slice(0, position).join(" ") if found
           
           if found && !series_name.nil? && !series_name.empty?
-            tvdb_series_name = nil
+            tvdb_series = find_tvdb_result_for_series_name(series_name)
             
-            if @tvdb_hash[series_name].nil?
-              client = TVdb::Client.new('2453AFC9C8A5C8C3')
-              better_search = series_name.gsub(/ and /, " ").gsub(/^the /, "").gsub(/^shit /, "").gsub(/ \& /, " ")
-              
-              results = nil
-              unless @cached_searches[better_search].nil?
-                results = @cached_searches[better_search]
-              else
-                results = client.search(better_search)
-                @cached_searches[better_search] = results
-              end
-              
-              results.each do |result|
-                if normalize_tvdb_series_name(result.seriesname) == series_name
-                  tvdb_series_name = result.seriesname
-                  @tvdb_hash[series_name] = result
-                  break
-                end
-              end
-            else
-              tvdb_series_name = @tvdb_hash[series_name].seriesname
-            end
-            
-            unless tvdb_series_name.nil?
+            unless tvdb_series.nil?
               (position + 1).times { working.shift }
               extension = working.pop
               temp = working.pop
               other_stuff = working.join(@file_name_separator) 
               other_stuff << "-#{temp}" unless temp.nil? || temp.empty?
               
-              show = series_name.gsub(/ /, @show_name_separator)
+              show = normalize_series_name(tvdb_series.seriesname).gsub(/ /, @show_name_separator)
               
               return [show, season.to_i, episode.to_i, other_stuff, extension]
             end
@@ -207,8 +185,33 @@ module Dewey
       end
     end
     
-    def normalize_tvdb_series_name(series_name)
+    def find_tvdb_result_for_series_name(series_name)
+      normalized_series_name = normalize_series_name(series_name)
+      
+      return @tvdb_hash[normalized_series_name] unless @tvdb_hash[normalized_series_name].nil?
+      
+      tvdb_search(normalized_series_name).each do |result|
+        if normalized_series_name == normalize_series_name(result.seriesname)
+          @tvdb_hash[normalized_series_name] = result
+          return result
+        end
+      end
+      
+      return nil
+    end
+    
+    def normalize_series_name(series_name)
       series_name.gsub(/\$\#\*\!/, "shit").gsub(/[\(\)\:\!\']/, "").gsub(/\-/, " ").gsub(/\&/, "and").gsub(/ +/, " ").strip.downcase
+    end
+    
+    def tvdb_search(series_name)
+      better_search = series_name.gsub(/ and /, " ").gsub(/^the /, "").gsub(/^shit /, "").gsub(/ \& /, " ")
+      
+      if @cached_searches[better_search].nil?
+        @cached_searches[better_search] = @client.search(better_search)
+      end
+      
+      @cached_searches[better_search] 
     end
     
   end
