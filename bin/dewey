@@ -1,13 +1,12 @@
 #!/usr/bin/env ruby
-require "rubygems"
-require "bundler/setup"
 
 module Dewey
   class Cli
 
     require "optparse"
     require "fileutils"
-    require File.join('dewey', 'organiser')
+
+    require "dewey/organiser"
     
     RC_OK = 0
     RC_USAGE = 1
@@ -105,6 +104,4 @@ module Dewey
   end
 end
 
-if __FILE__ == $0
-  Dewey::Cli.new().parse_opts(ARGV).run()
-end
+Dewey::Cli.new().parse_opts(ARGV).run()
