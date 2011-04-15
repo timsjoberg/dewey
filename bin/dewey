@@ -1,13 +1,12 @@
 #!/usr/bin/env ruby
-require "rubygems"
-require "bundler/setup"
 
 module Dewey
   class Cli
 
     require "optparse"
     require "fileutils"
-    require File.join('dewey', 'organiser')
+
+    require "dewey/organiser"
     
     RC_OK = 0
     RC_USAGE = 1
