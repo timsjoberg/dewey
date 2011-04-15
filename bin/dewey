@@ -104,6 +104,4 @@ module Dewey
   end
 end
 
-if __FILE__ == $0
-  Dewey::Cli.new().parse_opts(ARGV).run()
-end
+Dewey::Cli.new().parse_opts(ARGV).run()
