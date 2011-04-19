@@ -19,6 +19,7 @@ module Dewey
       @tv_extensions = DEFAULT_EXTS
       @archive = true
       @verbose = 0
+      @http_post_url = nil
     end
 
 
@@ -45,6 +46,12 @@ module Dewey
              "Disable this if you want a pretend run",
              "Default: #{@archive}") do |v|
           @archive = v
+        end
+        
+        o.on("--http-post=URL",
+             "URL to make an http post to once something has been archived",
+             "Default: none") do |v|
+          @http_post_url = v
         end
 
         o.on("--verbose",
@@ -80,6 +87,7 @@ module Dewey
       
       organiser = Organiser.new(@input_dir, @tv_dir) do |o|
         o.pretend = true unless @archive
+        o.http_post_url = @http_post_url if @http_post_url
       end
       
       organiser.organise!

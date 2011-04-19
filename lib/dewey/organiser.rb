@@ -4,7 +4,7 @@ require 'tvdb_party'
 module Dewey
   class Organiser
     
-    attr_accessor :pretend, :delete_nfo, :show_name_separator, :file_name_separator
+    attr_accessor :pretend, :delete_nfo, :show_name_separator, :file_name_separator, :http_post_url
     attr_reader = :extensions
     
     def initialize(input_dir, base_tv_dir)
@@ -16,6 +16,7 @@ module Dewey
       @extensions = ['avi', 'mkv']
       @show_name_separator = "."
       @file_name_separator = "."
+      @http_post_url = nil
       
       @client = TvdbParty::Search.new('2453AFC9C8A5C8C3')
       @tvdb_hash = {}
@@ -42,13 +43,29 @@ module Dewey
           target_file << ".#{thing[4]}"
           
           if File.file?(target_file)
-            puts "ERROR: NOT moving #{possible_file} to #{target_file} because target already exists"
+            unless @pretend
+              puts "ERROR: NOT moving #{possible_file} to #{target_file} because target already exists"
+            else
+              puts "ERROR: Would NOT move #{possible_file} to #{target_file} because target already exists"
+            end
           else
-            puts "Moving #{possible_file} to #{target_file}"
-            FileUtils.mkdir_p(target_directory) unless @pretend
-            FileUtils.mv(possible_file, target_file) unless @pretend
-            
-            cleanup!(File.dirname(possible_file)) unless @pretend
+            unless @pretend
+              puts "Moving #{possible_file} to #{target_file}"
+              FileUtils.mkdir_p(target_directory) 
+              FileUtils.mv(possible_file, target_file)
+              
+              if @http_post_url
+                begin
+                  HTTParty.post(@http_post_url, :body => { :episode => { :series_id => thing[5], :season => season.to_i, :episode => episode.to_i, :location => target_file } })
+                rescue Exception => e
+                  puts "ERROR: Failed to post to #{@http_post_url} #{e.message}"
+                end
+              end
+              
+              cleanup!(File.dirname(possible_file))
+            else
+              puts "Would move #{possible_file} to #{target_file}"
+            end
           end
         end
       end
@@ -118,7 +135,7 @@ module Dewey
             show = normalize_series_name(tvdb_series["SeriesName"]).gsub(/ /, @show_name_separator)
             
             unless @client.get_series_by_id(tvdb_series["seriesid"]).get_episode(season.to_i, episode.to_i).nil?
-              return [show, season.to_i, episode.to_i, other_stuff, extension]
+              return [show, season.to_i, episode.to_i, other_stuff, extension, tvdb_series["seriesid"]]
             end
           end
         end
@@ -144,7 +161,7 @@ module Dewey
             show = show.gsub(/\./, @show_name_separator).gsub(/ /, @show_name_separator)
             
             unless @client.get_series_by_id(tvdb_series["seriesid"]).get_episode(season.to_i, episode.to_i).nil?
-              return [show, season.to_i, episode.to_i, other_stuff, extension]
+              return [show, season.to_i, episode.to_i, other_stuff, extension, tvdb_series["seriesid"]]
             end
           end
         end
