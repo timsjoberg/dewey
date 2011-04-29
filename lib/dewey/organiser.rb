@@ -267,7 +267,17 @@ module Dewey
     def tvdb_search(series_name)
       better_search = series_name.gsub(/ and /, " ").gsub(/^the /, "").gsub(/^shit /, "").gsub(/ \& /, " ")
       
-      @client.search(better_search)
+      retries = 0
+      begin
+        @client.search(better_search)
+      rescue Errno::ETIMEDOUT => e
+        if retries >= 3
+          raise e
+        else
+          retries += 1
+          retry
+        end
+      end
     end
     
   end
