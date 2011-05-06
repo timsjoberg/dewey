@@ -270,7 +270,7 @@ module Dewey
       retries = 0
       begin
         @client.search(better_search)
-      rescue Errno::ETIMEDOUT => e
+      rescue Timeout::Error, Errno::ETIMEDOUT => e
         if retries >= 3
           raise e
         else
