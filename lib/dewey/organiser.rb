@@ -88,7 +88,7 @@ module Dewey
       if filename =~ /.*\.#{@extension_regex}$/i
         extension = $1.downcase
         
-        working = filename.downcase.gsub(/\-/, " ").gsub(/\./, " ").gsub(/ +/, " ").strip.split(/ /)
+        working = filename.downcase.gsub(/[\-\._]/, " ").gsub(/\s+/, " ").strip.split(/ /)
         
         found = false
         position = -1
@@ -261,7 +261,7 @@ module Dewey
     end
     
     def normalize_series_name(series_name)
-      series_name.gsub(/\$\#\*\!/, "shit").gsub(/[\(\)\:\!\']/, "").gsub(/\-/, " ").gsub(/\&/, "and").gsub(/ +/, " ").strip.downcase
+      series_name.gsub(/\$\#\*\!/, "shit").gsub(/[\(\)\:\!\'\[\]]/, "").gsub(/\-/, " ").gsub(/\&/, "and").gsub(/\s+/, " ").strip.downcase
     end
     
     def tvdb_search(series_name)
