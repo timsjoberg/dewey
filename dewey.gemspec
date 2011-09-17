@@ -5,8 +5,8 @@ Gem::Specification.new do |s|
   s.name        = "dewey"
   s.version     = Dewey::VERSION
   s.platform    = Gem::Platform::RUBY
-  s.authors     = []
-  s.email       = []
+  s.authors     = ["Tim Sjoberg"]
+  s.email       = ["bedlamp@gmail.com"]
   s.homepage    = "http://rubygems.org/gems/dewey"
   s.summary     = "Manage your TV collection"
   s.description = "Guesses show/episode information and puts things in the right place"
