@@ -13,7 +13,7 @@ module Dewey
       
       @pretend = false
       @delete_nfo = true
-      @extensions = ['avi', 'mkv']
+      @extensions = ['avi', 'mkv', 'mp4']
       @show_name_separator = "."
       @file_name_separator = "."
       @http_post_url = nil
